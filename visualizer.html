@@ -12,7 +12,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'FiraCode', 'Fira Code', monospace;
             background: #f5f5f5;
             padding: 20px;
             line-height: 1.6;
@@ -95,9 +95,8 @@
         }
 
         .visualization {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
+            display: flex;
+            justify-content: center;
             margin-top: 20px;
         }
 
@@ -106,6 +105,7 @@
             border: 1px solid #e0e0e0;
             border-radius: 4px;
             padding: 20px;
+            max-width: 800px;
         }
 
         .frame-header {
@@ -157,10 +157,10 @@
         .caption {
             margin-top: 10px;
             padding: 10px;
-            background: #e8f5e9;
+            background: #f5f5f5;
             border-radius: 4px;
             font-style: italic;
-            color: #2e7d32;
+            color: #666;
         }
 
         .error {
@@ -177,33 +177,33 @@
             color: #666;
         }
 
-        .color-legend {
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            gap: 5px;
-            margin-top: 10px;
-            padding: 10px;
-            background: white;
+        .click-indicator {
+            position: absolute;
+            background: #FF851B;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+            padding: 4px 8px;
             border-radius: 4px;
-        }
-
-        .color-item {
+            pointer-events: none;
+            z-index: 10;
+            transform: translate(-50%, -50%);
             display: flex;
             align-items: center;
-            gap: 5px;
-            font-size: 12px;
+            gap: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
-        .color-swatch {
-            width: 20px;
-            height: 20px;
-            border: 1px solid #ccc;
+        .click-indicator svg {
+            width: 16px;
+            height: 16px;
+            fill: none;
+            stroke: white;
         }
 
-        @media (max-width: 768px) {
-            .visualization {
-                grid-template-columns: 1fr;
-            }
+        .canvas-container {
+            position: relative;
+            display: inline-block;
         }
     </style>
 </head>
@@ -239,23 +239,19 @@
                     <span>Current Frame</span>
                     <span id="currentFrameNumber"></span>
                 </div>
-                <canvas id="currentCanvas" class="grid-canvas"></canvas>
+                <div class="canvas-container">
+                    <canvas id="currentCanvas" class="grid-canvas"></canvas>
+                    <div id="currentClickIndicator" class="click-indicator" style="display: none;">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+                            <path d="M162.35,138.35a8,8,0,0,1,2.46-13l46.41-17.82a8,8,0,0,0-.71-14.85L50.44,40.41a8,8,0,0,0-10,10L92.68,210.51a8,8,0,0,0,14.85.71l17.82-46.41a8,8,0,0,1,13-2.46l51.31,51.31a8,8,0,0,0,11.31,0L213.66,201a8,8,0,0,0,0-11.31Z" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/>
+                        </svg>
+                        <span>Claude</span>
+                    </div>
+                </div>
                 <div id="currentCaption" class="caption"></div>
                 <div id="currentMetadata" class="metadata"></div>
             </div>
-            
-            <div class="frame-container">
-                <div class="frame-header">
-                    <span>Previous Frame</span>
-                    <span id="previousFrameNumber"></span>
-                </div>
-                <canvas id="previousCanvas" class="grid-canvas"></canvas>
-                <div id="previousCaption" class="caption"></div>
-                <div id="previousMetadata" class="metadata"></div>
-            </div>
         </div>
-        
-        <div id="colorLegend" class="color-legend" style="display: none;"></div>
         
         <div id="error" class="error" style="display: none;"></div>
         <div id="loading" class="loading" style="display: none;">Loading...</div>
@@ -295,7 +291,6 @@
         const nextButton = document.getElementById('nextFrame');
         const frameInfo = document.getElementById('frameInfo');
         const visualization = document.getElementById('visualization');
-        const colorLegend = document.getElementById('colorLegend');
         const errorDiv = document.getElementById('error');
         const loadingDiv = document.getElementById('loading');
         const refreshButton = document.getElementById('refreshGames');
@@ -354,9 +349,7 @@
                     showError('No frames found for this game');
                 } else {
                     updateVisualization();
-                    updateColorLegend();
                     visualization.style.display = 'grid';
-                    colorLegend.style.display = 'grid';
                 }
                 
                 showLoading(false);
@@ -370,6 +363,18 @@
         function drawGrid(canvas, grid, cellSizeParam) {
             const ctx = canvas.getContext('2d');
             const size = cellSizeParam || cellSize;
+            
+            // Check if grid is valid
+            if (!grid || !Array.isArray(grid) || grid.length === 0 || !Array.isArray(grid[0])) {
+                canvas.width = 100;
+                canvas.height = 100;
+                ctx.fillStyle = '#f0f0f0';
+                ctx.fillRect(0, 0, 100, 100);
+                ctx.fillStyle = '#666';
+                ctx.textAlign = 'center';
+                ctx.fillText('Invalid grid data', 50, 50);
+                return;
+            }
             
             canvas.width = grid[0].length * size;
             canvas.height = grid.length * size;
@@ -413,14 +418,58 @@
             if (frames.length === 0) return;
             
             const currentFrame = frames[currentFrameIndex];
-            const previousFrame = currentFrameIndex > 0 ? frames[currentFrameIndex - 1] : null;
+            
+            // Extract the grid from the frame data
+            // Frame data contains a 3D array: frame[0] is the first grid
+            const currentGrid = currentFrame.frame && currentFrame.frame[0] ? currentFrame.frame[0] : currentFrame.grid;
             
             // Update current frame
             const currentCanvas = document.getElementById('currentCanvas');
-            drawGrid(currentCanvas, currentFrame.grid, cellSize);
+            drawGrid(currentCanvas, currentGrid, cellSize);
+            
+            // Action type mapping
+            const actionTypeMap = {
+                'ACTION1': 'UP',
+                'ACTION2': 'DOWN',
+                'ACTION3': 'LEFT',
+                'ACTION4': 'RIGHT',
+                'ACTION5': 'MINUS',
+                '1': 'UP',
+                '2': 'DOWN',
+                '3': 'LEFT',
+                '4': 'RIGHT',
+                '5': 'MINUS'
+            };
             
             document.getElementById('currentFrameNumber').textContent = `Frame ${currentFrameIndex}`;
-            document.getElementById('currentCaption').textContent = currentFrame.caption || 'No caption';
+            
+            // Generate custom caption based on action
+            let caption = currentFrame.caption || 'No caption';
+            if (currentFrame.action) {
+                const actionType = currentFrame.action.type;
+                if (actionType === 'ACTION6' || actionType === '6') {
+                    if (currentFrame.action.params && currentFrame.action.params.x !== undefined && currentFrame.action.params.y !== undefined) {
+                        caption = `Claude Clicked at Location (${currentFrame.action.params.x}, ${currentFrame.action.params.y})`;
+                    }
+                } else if (actionTypeMap[actionType] || actionTypeMap[`ACTION${actionType}`]) {
+                    const key = actionTypeMap[actionType] || actionTypeMap[`ACTION${actionType}`];
+                    caption = `Claude Pressed ${key}`;
+                }
+            }
+            
+            document.getElementById('currentCaption').textContent = caption;
+            
+            // Show click indicator for ACTION6
+            const currentClickIndicator = document.getElementById('currentClickIndicator');
+            if (currentFrame.action && currentFrame.action.type === 'ACTION6' && currentFrame.action.params) {
+                const x = currentFrame.action.params.x;
+                const y = currentFrame.action.params.y;
+                currentClickIndicator.style.display = 'block';
+                currentClickIndicator.style.left = `${x * cellSize + cellSize/2}px`;
+                currentClickIndicator.style.top = `${y * cellSize + cellSize/2}px`;
+            } else {
+                currentClickIndicator.style.display = 'none';
+            }
             
             const currentMetadata = document.getElementById('currentMetadata');
             currentMetadata.innerHTML = `
@@ -438,73 +487,12 @@
                 </div>
             `;
             
-            // Update previous frame
-            const previousCanvas = document.getElementById('previousCanvas');
-            if (previousFrame) {
-                drawGrid(previousCanvas, previousFrame.grid, cellSize);
-                document.getElementById('previousFrameNumber').textContent = `Frame ${currentFrameIndex - 1}`;
-                document.getElementById('previousCaption').textContent = previousFrame.caption || 'No caption';
-                
-                const previousMetadata = document.getElementById('previousMetadata');
-                previousMetadata.innerHTML = `
-                    <div class="metadata-item">
-                        <span class="metadata-label">State:</span>
-                        <span class="metadata-value">${previousFrame.state || 'Unknown'}</span>
-                    </div>
-                    <div class="metadata-item">
-                        <span class="metadata-label">Score:</span>
-                        <span class="metadata-value">${previousFrame.score || 0}</span>
-                    </div>
-                    <div class="metadata-item">
-                        <span class="metadata-label">Action:</span>
-                        <span class="metadata-value">${previousFrame.action ? `Type ${previousFrame.action.type}` : 'None'}</span>
-                    </div>
-                `;
-            } else {
-                previousCanvas.width = 100;
-                previousCanvas.height = 100;
-                const ctx = previousCanvas.getContext('2d');
-                ctx.fillStyle = '#f0f0f0';
-                ctx.fillRect(0, 0, 100, 100);
-                ctx.fillStyle = '#666';
-                ctx.textAlign = 'center';
-                ctx.fillText('No previous frame', 50, 50);
-                
-                document.getElementById('previousFrameNumber').textContent = '';
-                document.getElementById('previousCaption').textContent = '';
-                document.getElementById('previousMetadata').innerHTML = '';
-            }
-            
             // Update navigation
             frameInfo.textContent = `Frame ${currentFrameIndex + 1} of ${frames.length}`;
             prevButton.disabled = currentFrameIndex === 0;
             nextButton.disabled = currentFrameIndex === frames.length - 1;
         }
 
-        // Update color legend
-        function updateColorLegend() {
-            const legend = document.getElementById('colorLegend');
-            legend.innerHTML = '';
-            
-            for (let i = 0; i < 16; i++) {
-                const item = document.createElement('div');
-                item.className = 'color-item';
-                
-                const swatch = document.createElement('div');
-                swatch.className = 'color-swatch';
-                swatch.style.backgroundColor = COLOR_PALETTE[i];
-                if (i === 10) {
-                    swatch.style.border = '1px solid #ccc';
-                }
-                
-                const label = document.createElement('span');
-                label.textContent = i;
-                
-                item.appendChild(swatch);
-                item.appendChild(label);
-                legend.appendChild(item);
-            }
-        }
 
         // Helper functions
         function showError(message) {
@@ -526,7 +514,6 @@
                 loadFrames(currentGame);
             } else {
                 visualization.style.display = 'none';
-                colorLegend.style.display = 'none';
             }
         });
 
