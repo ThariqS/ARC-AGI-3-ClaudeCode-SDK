@@ -1,7 +1,7 @@
 {
   "gameId": "ft09-16726c5b26ff",
   "guid": "44f539b5-4d23-411c-91f8-79b3ff9d191b",
-  "totalFrames": 1,
+  "totalFrames": 2,
   "finalState": "NOT_FINISHED",
   "finalScore": 0,
   "totalActions": 0,
@@ -11,6 +11,11 @@
       "frame": 0,
       "action": "RESET",
       "caption": "Game initialized"
+    },
+    {
+      "frame": 1,
+      "action": "ACTION1",
+      "caption": "Executed ACTION1"
     }
   ]
 }

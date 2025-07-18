@@ -1,0 +1,61 @@
+{
+  "gameId": "ls20-016295f7601e",
+  "guid": "9b8a4d06-3e3d-411e-b395-e1ed3f434931",
+  "totalFrames": 10,
+  "finalState": "NOT_FINISHED",
+  "finalScore": 0,
+  "totalActions": 0,
+  "startTime": "2025-07-18T16:28:49.107Z",
+  "timeline": [
+    {
+      "frame": 0,
+      "action": "RESET",
+      "caption": "Game initialized"
+    },
+    {
+      "frame": 1,
+      "action": "ACTION2",
+      "caption": "Executed ACTION2"
+    },
+    {
+      "frame": 2,
+      "action": "ACTION1",
+      "caption": "Executed ACTION1"
+    },
+    {
+      "frame": 3,
+      "action": "ACTION3",
+      "caption": "Executed ACTION3"
+    },
+    {
+      "frame": 4,
+      "action": "ACTION4",
+      "caption": "Executed ACTION4"
+    },
+    {
+      "frame": 5,
+      "action": "ACTION5",
+      "caption": "Executed ACTION5"
+    },
+    {
+      "frame": 6,
+      "action": "ACTION6",
+      "caption": "Executed ACTION6 at (52, 36)"
+    },
+    {
+      "frame": 7,
+      "action": "ACTION6",
+      "caption": "Executed ACTION6 at (20, 36)"
+    },
+    {
+      "frame": 8,
+      "action": "ACTION6",
+      "caption": "Executed ACTION6 at (62, 14)"
+    },
+    {
+      "frame": 9,
+      "action": "ACTION6",
+      "caption": "Executed ACTION6 at (17, 35)"
+    }
+  ]
+}
