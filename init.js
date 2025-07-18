@@ -3,11 +3,23 @@ import chalk from 'chalk';
 import { writeJSON, CONFIG_FILE } from './utils.js';
 
 program
-  .requiredOption('--api-key <key>', 'Your ARC-AGI-3 API key')
+  .option('--api-key <key>', 'Your ARC-AGI-3 API key')
   .option('--base-url <url>', 'API base URL', 'https://three.arcprize.org')
   .parse();
 
 const options = program.opts();
+
+// Allow API key as first argument if --api-key not specified
+if (!options.apiKey && program.args.length > 0) {
+  options.apiKey = program.args[0];
+}
+
+// Check if API key is provided
+if (!options.apiKey) {
+  console.error(chalk.red('Error: API key is required'));
+  console.log('Usage: npm run init <api-key> or npm run init -- --api-key <key>');
+  process.exit(1);
+}
 
 async function init() {
   try {
