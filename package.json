@@ -4,6 +4,7 @@
   "main": "init.js",
   "author": "Thariq Shihipar",
   "license": "ISC",
+  "type": "module",
   "description": "Node.js CLI for ARC-AGI-3 game API",
   "scripts": {
     "init": "node init.js",
