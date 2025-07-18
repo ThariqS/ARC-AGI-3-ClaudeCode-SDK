@@ -75,16 +75,13 @@ export async function saveFrame(guid, frameNumber, frameData, action, caption = 
     gameId = sessions[guid]?.gameId;
   }
   
-  // Save in both old location (for compatibility) and new location
-  const oldFrameDir = path.join(FRAMES_DIR, guid);
-  const newFrameDir = gameId ? path.join(GAMES_DIR, gameId, 'frames') : oldFrameDir;
+  // Save only in new location if gameId exists, otherwise use old location
+  const frameDir = gameId ? path.join(GAMES_DIR, gameId, 'frames') : path.join(FRAMES_DIR, guid);
   
-  await fs.mkdir(oldFrameDir, { recursive: true });
-  await fs.mkdir(newFrameDir, { recursive: true });
+  await fs.mkdir(frameDir, { recursive: true });
   
   const frameFileName = `frame_${frameNumber.toString().padStart(4, '0')}.json`;
-  const oldFrameFile = path.join(oldFrameDir, frameFileName);
-  const newFrameFile = path.join(newFrameDir, frameFileName);
+  const frameFile = path.join(frameDir, frameFileName);
   
   const frameRecord = {
     frameNumber,
@@ -101,14 +98,10 @@ export async function saveFrame(guid, frameNumber, frameData, action, caption = 
     }
   };
   
-  await writeJSON(oldFrameFile, frameRecord);
-  if (gameId) {
-    await writeJSON(newFrameFile, frameRecord);
-  }
+  await writeJSON(frameFile, frameRecord);
   
-  const oldSummaryFile = path.join(oldFrameDir, 'summary.json');
-  const newSummaryFile = path.join(newFrameDir, 'summary.json');
-  let summary = await readJSON(oldSummaryFile) || await readJSON(newSummaryFile) || {
+  const summaryFile = path.join(frameDir, 'summary.json');
+  let summary = await readJSON(summaryFile) || {
     gameId: frameData.game_id,
     guid: frameData.guid,
     totalFrames: 0,
@@ -128,10 +121,9 @@ export async function saveFrame(guid, frameNumber, frameData, action, caption = 
     caption: caption || ''
   });
   
-  await writeJSON(oldSummaryFile, summary);
+  await writeJSON(summaryFile, summary);
+  
   if (gameId) {
-    await writeJSON(newSummaryFile, summary);
-    
     // Also update game.json if it exists
     const gameJsonPath = path.join(GAMES_DIR, gameId, 'game.json');
     const gameData = await readJSON(gameJsonPath);
