@@ -1,0 +1,114 @@
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export const CONFIG_FILE = path.join(__dirname, 'config.json');
+export const GAMES_FILE = path.join(__dirname, 'games.json');
+export const SESSIONS_FILE = path.join(__dirname, 'sessions.json');
+export const SCORECARDS_FILE = path.join(__dirname, 'scorecards.json');
+export const FRAMES_DIR = path.join(__dirname, 'frames');
+
+export async function ensureFile(filePath, defaultContent = {}) {
+  try {
+    await fs.access(filePath);
+  } catch {
+    await fs.writeFile(filePath, JSON.stringify(defaultContent, null, 2));
+  }
+}
+
+export async function readJSON(filePath) {
+  try {
+    const content = await fs.readFile(filePath, 'utf-8');
+    return JSON.parse(content);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function writeJSON(filePath, data) {
+  await fs.writeFile(filePath, JSON.stringify(data, null, 2));
+}
+
+export async function getConfig() {
+  await ensureFile(CONFIG_FILE, { apiKey: null, baseUrl: 'https://three.arcprize.org' });
+  return readJSON(CONFIG_FILE);
+}
+
+export async function makeRequest(endpoint, options = {}) {
+  const config = await getConfig();
+  
+  if (!config.apiKey) {
+    throw new Error('API key not configured. Run: node init.js --api-key YOUR-KEY');
+  }
+
+  const fetch = (await import('node-fetch')).default;
+  
+  const response = await fetch(`${config.baseUrl}${endpoint}`, {
+    ...options,
+    headers: {
+      'X-API-Key': config.apiKey,
+      'Content-Type': 'application/json',
+      ...options.headers
+    }
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`API Error ${response.status}: ${errorText}`);
+  }
+
+  return response.json();
+}
+
+export async function saveFrame(guid, frameNumber, frameData, action, caption = '') {
+  const frameDir = path.join(FRAMES_DIR, guid);
+  await fs.mkdir(frameDir, { recursive: true });
+  
+  const frameFile = path.join(frameDir, `frame_${frameNumber.toString().padStart(4, '0')}.json`);
+  
+  const frameRecord = {
+    frameNumber,
+    timestamp: new Date().toISOString(),
+    action: action || { type: 'UNKNOWN', params: {} },
+    caption,
+    state: frameData.state,
+    score: frameData.score,
+    winScore: frameData.win_score,
+    frame: frameData.frame,
+    changes: {
+      description: caption || 'Frame captured',
+      pixelsChanged: 0
+    }
+  };
+  
+  await writeJSON(frameFile, frameRecord);
+  
+  const summaryFile = path.join(frameDir, 'summary.json');
+  let summary = await readJSON(summaryFile) || {
+    gameId: frameData.game_id,
+    guid: frameData.guid,
+    totalFrames: 0,
+    finalState: 'NOT_FINISHED',
+    finalScore: 0,
+    totalActions: 0,
+    startTime: new Date().toISOString(),
+    timeline: []
+  };
+  
+  summary.totalFrames = frameNumber + 1;
+  summary.finalState = frameData.state;
+  summary.finalScore = frameData.score;
+  summary.timeline.push({
+    frame: frameNumber,
+    action: action?.type || 'UNKNOWN',
+    caption: caption || ''
+  });
+  
+  await writeJSON(summaryFile, summary);
+}

@@ -1,0 +1,25 @@
+{
+  "name": "arc-agi-cli",
+  "version": "1.0.0",
+  "main": "init.js",
+  "author": "Thariq Shihipar",
+  "license": "ISC",
+  "description": "Node.js CLI for ARC-AGI-3 game API",
+  "scripts": {
+    "init": "node init.js",
+    "list-games": "node list-games.js",
+    "open-scorecard": "node open-scorecard.js",
+    "close-scorecard": "node close-scorecard.js",
+    "start-game": "node start-game.js",
+    "reset-game": "node reset-game.js",
+    "action": "node action.js",
+    "status": "node status.js",
+    "get-scorecard": "node get-scorecard.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-code": "^1.0.55",
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "node-fetch": "^3.3.2"
+  }
+}
