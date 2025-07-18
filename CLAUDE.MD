@@ -52,22 +52,26 @@ The problems test various cognitive abilities:
 You can call the following scripts to play a game:
 
 ### 1. List available games
+
 ```bash
 node actions/list-games.js
 ```
 
 ### 2. Open a scorecard (start tracking)
+
 ```bash
 node actions/open-scorecard.js
 node actions/open-scorecard.js --tags "baseline,test" --source-url "https://github.com/..."
 ```
 
 ### 3. Start a game
+
 ```bash
 node actions/start-game.js --game ls20-016295f7601e
 ```
 
 ### 4. Execute actions
+
 ```bash
 # Simple actions (1-5)
 node actions/action.js --type 1
@@ -81,6 +85,7 @@ node actions/action.js --type 1 --reasoning '{"strategy": "explore"}'
 ```
 
 ### 5. Reset game
+
 ```bash
 # Reset current level
 node actions/reset-game.js
@@ -90,17 +95,20 @@ node actions/reset-game.js --full
 ```
 
 ### 6. Check status
+
 ```bash
 node actions/status.js
 ```
 
 ### 7. View scorecard
+
 ```bash
 node actions/get-scorecard.js
 node actions/get-scorecard.js --game ls20-016295f7601e
 ```
 
 ### 8. Close scorecard
+
 ```bash
 node actions/close-scorecard.js
 ```
@@ -111,13 +119,20 @@ node actions/close-scorecard.js
 - `games.json` - Cached list of available games
 - `sessions.json` - Active game sessions
 - `scorecards.json` - Scorecard history
-- `frames/[guid]/` - Frame-by-frame history for each session
+- `frames/[guid]/` - Frame-by-frame history for each session (deprecated location)
   - `frame_0000.json` - Individual frame data with captions
   - `summary.json` - Session summary and timeline
+- `games/[game-id]/` - **New location for game-specific data and scripts**
+  - `frames/` - Frame-by-frame history for this game
+    - `frame_0000.json` - Individual frame data with captions
+    - `summary.json` - Session summary and timeline
+  - `game.json` - Game metadata and state
+  - `scripts/` - Game-specific analysis and strategy scripts
 
 ## Frame Data
 
 Each frame is stored with:
+
 - Frame number and timestamp
 - Action that produced the frame
 - Caption describing what happened
@@ -125,26 +140,53 @@ Each frame is stored with:
 - Full 64x64 grid data
 - Pixel change information
 
-
 # Writing scripts
 
 You may need to write scripts to help you take action, do that in Node.JS.
-Store helpful scripts in ./helpers
+You should write this as ESmodules.
+
+## Script Locations
+
+- **General helper scripts**: Store in `./helpers/` - These are reusable utilities for frame analysis, grid patterns, etc.
+- **Game-specific scripts**: Store in `./games/[game-id]/scripts/` - These are analysis scripts specific to solving a particular game
+
+## Script Guidelines
+
+1. Always use ES modules (`import`/`export` syntax)
+2. Add `.js` extension to all imports
+3. Use descriptive names that indicate the script's purpose
+4. Include comments explaining the analysis approach
+5. Game-specific scripts should import and use the general helpers when needed
+
+Example game-specific script structure:
+```javascript
+import { loadFrame, compareFrames } from '../../../helpers/frame-analysis.js';
+import { analyzeColorDistribution } from '../../../helpers/grid-analysis.js';
+
+// Analyze specific patterns for game ls20-016295f7601e
+const analyzeGamePatterns = async () => {
+  // Your game-specific analysis logic here
+};
+```
 
 ## Available Helper Functions
 
 ### Frame Analysis (helpers/frame-analysis.js)
 
 - **compareFrames(frame1Path, frame2Path)** - Compare two frame JSON files and return array of pixel differences
+
   - Returns: Array of {row, col, oldVal, newVal} for each changed pixel
 
 - **loadFrame(framePath)** - Load a frame from JSON file
+
   - Returns: Frame object containing grid data and metadata
 
 - **getGrid(frame)** - Extract the 2D grid array from a frame object
+
   - Returns: 64x64 array of color values (0-15)
 
 - **printDifferenceSummary(differences, actionName)** - Print a readable summary of frame changes
+
   - Shows number of pixels changed and first 5 changes
 
 - **getFrameFiles(sessionDir)** - Get all frame files in a session directory
@@ -153,18 +195,23 @@ Store helpful scripts in ./helpers
 ### Grid Pattern Analysis (helpers/grid-analysis.js)
 
 - **analyzeColorDistribution(grid)** - Analyze how colors are distributed in the grid
+
   - Returns: Object with color counts and percentages
 
 - **findRectangularRegions(grid, targetColor)** - Find rectangular areas of a specific color
+
   - Returns: Array of regions sorted by area, each with {top, left, bottom, right, color, area}
 
 - **detectRepeatingPattern(sequence)** - Detect repeating patterns in a 1D array
+
   - Returns: {pattern, repeatCount, startIndex, patternLength} or null
 
 - **getRow(grid, rowIndex)** / **getColumn(grid, colIndex)** - Extract specific row or column
+
   - Returns: 1D array of values
 
 - **findRowPatterns(grid)** / **findColumnPatterns(grid)** - Find repeating patterns in all rows/columns
+
   - Returns: Array of pattern objects with indices
 
 - **findConnectedComponents(grid, targetColor)** - Find connected regions of same color (4-connected)
@@ -173,22 +220,27 @@ Store helpful scripts in ./helpers
 ### Grid Visualization (helpers/grid-visualization.js)
 
 - **gridToAscii(grid, colorMap)** - Convert grid to ASCII art representation
+
   - Default uses: spaces for 0, █ for 3, ▓ for 4, etc.
   - Returns: String representation of the grid
 
 - **displayRegion(grid, centerRow, centerCol, radius)** - Show a small region with coordinates
+
   - Returns: ASCII view with row/column numbers
 
 - **createGridSummary(grid, scale)** - Create downsampled overview of large grid
+
   - Returns: Smaller ASCII representation showing dominant colors
 
 - **highlightPositions(grid, positions, highlightChar)** - Show grid with specific positions marked
-  - Returns: Grid display with * or custom char at specified positions
+
+  - Returns: Grid display with \* or custom char at specified positions
 
 - **compareSideBySide(grid1, grid2, maxWidth)** - Display two grids side by side
   - Returns: Formatted comparison view
 
 # Taking Notes
+
 Whenever you need to take notes on what's happening write it in the ./notes folder as a markdown file.
 
 Be sure to name the file well so that you can read it again in the future.

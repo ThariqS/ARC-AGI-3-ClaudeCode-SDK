@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARC AGI 3 Game Visualizer</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+        }
+
+        select, input, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .frame-navigation {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .frame-info {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .visualization {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .frame-container {
+            background: #fafafa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 20px;
+        }
+
+        .frame-header {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .grid-canvas {
+            border: 2px solid #333;
+            image-rendering: pixelated;
+            cursor: crosshair;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .metadata {
+            margin-top: 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .metadata-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            padding: 3px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .metadata-item:last-child {
+            border-bottom: none;
+        }
+
+        .metadata-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .metadata-value {
+            color: #333;
+        }
+
+        .caption {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e8f5e9;
+            border-radius: 4px;
+            font-style: italic;
+            color: #2e7d32;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .color-legend {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 5px;
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+        }
+
+        .color-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+        }
+
+        .color-swatch {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #ccc;
+        }
+
+        @media (max-width: 768px) {
+            .visualization {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ARC AGI 3 Game Visualizer</h1>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="gameSelect">Select Game:</label>
+                <select id="gameSelect">
+                    <option value="">Loading games...</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="cellSize">Cell Size:</label>
+                <input type="number" id="cellSize" value="8" min="2" max="20" step="1">
+            </div>
+            
+            <div class="frame-navigation">
+                <button id="prevFrame" disabled>← Previous</button>
+                <span class="frame-info" id="frameInfo">No frames loaded</span>
+                <button id="nextFrame" disabled>Next →</button>
+            </div>
+            
+            <button id="refreshGames">Refresh Games</button>
+        </div>
+        
+        <div id="visualization" class="visualization" style="display: none;">
+            <div class="frame-container">
+                <div class="frame-header">
+                    <span>Current Frame</span>
+                    <span id="currentFrameNumber"></span>
+                </div>
+                <canvas id="currentCanvas" class="grid-canvas"></canvas>
+                <div id="currentCaption" class="caption"></div>
+                <div id="currentMetadata" class="metadata"></div>
+            </div>
+            
+            <div class="frame-container">
+                <div class="frame-header">
+                    <span>Previous Frame</span>
+                    <span id="previousFrameNumber"></span>
+                </div>
+                <canvas id="previousCanvas" class="grid-canvas"></canvas>
+                <div id="previousCaption" class="caption"></div>
+                <div id="previousMetadata" class="metadata"></div>
+            </div>
+        </div>
+        
+        <div id="colorLegend" class="color-legend" style="display: none;"></div>
+        
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="loading" class="loading" style="display: none;">Loading...</div>
+    </div>
+
+    <script>
+        // Color palette for ARC AGI (0-15)
+        const COLOR_PALETTE = [
+            '#000000', // 0: Black
+            '#0074D9', // 1: Blue  
+            '#FF4136', // 2: Red
+            '#2ECC40', // 3: Green
+            '#FFDC00', // 4: Yellow
+            '#AAAAAA', // 5: Gray
+            '#F012BE', // 6: Fuchsia
+            '#FF851B', // 7: Orange
+            '#7FDBFF', // 8: Aqua
+            '#870C25', // 9: Brown
+            '#FFFFFF', // 10: White (shown as light gray for visibility)
+            '#39CCCC', // 11: Teal
+            '#3D9970', // 12: Olive
+            '#01FF70', // 13: Lime
+            '#FFDC00', // 14: Yellow variant
+            '#FF4136'  // 15: Red variant
+        ];
+
+        // State
+        let currentGame = null;
+        let frames = [];
+        let currentFrameIndex = 0;
+        let cellSize = 8;
+
+        // DOM elements
+        const gameSelect = document.getElementById('gameSelect');
+        const cellSizeInput = document.getElementById('cellSize');
+        const prevButton = document.getElementById('prevFrame');
+        const nextButton = document.getElementById('nextFrame');
+        const frameInfo = document.getElementById('frameInfo');
+        const visualization = document.getElementById('visualization');
+        const colorLegend = document.getElementById('colorLegend');
+        const errorDiv = document.getElementById('error');
+        const loadingDiv = document.getElementById('loading');
+        const refreshButton = document.getElementById('refreshGames');
+
+        // Load games list
+        async function loadGames() {
+            try {
+                showLoading(true);
+                const response = await fetch('./games.json');
+                if (!response.ok) throw new Error('Failed to load games.json');
+                
+                const data = await response.json();
+                const games = data.games || [];
+                
+                gameSelect.innerHTML = '<option value="">Select a game...</option>';
+                games.forEach(game => {
+                    const option = document.createElement('option');
+                    option.value = game.game_id;
+                    option.textContent = `${game.game_id} - ${game.title || 'Unnamed'}`;
+                    gameSelect.appendChild(option);
+                });
+                
+                showLoading(false);
+            } catch (error) {
+                showError('Failed to load games: ' + error.message);
+                showLoading(false);
+            }
+        }
+
+        // Load frames for selected game
+        async function loadFrames(gameId) {
+            try {
+                showLoading(true);
+                frames = [];
+                currentFrameIndex = 0;
+                
+                // Try to load frames from the game directory
+                const baseDir = `./games/${gameId}/frames`;
+                let frameIndex = 0;
+                
+                while (true) {
+                    const framePath = `${baseDir}/frame_${String(frameIndex).padStart(4, '0')}.json`;
+                    try {
+                        const response = await fetch(framePath);
+                        if (!response.ok) break;
+                        
+                        const frameData = await response.json();
+                        frames.push(frameData);
+                        frameIndex++;
+                    } catch (error) {
+                        break;
+                    }
+                }
+                
+                if (frames.length === 0) {
+                    showError('No frames found for this game');
+                } else {
+                    updateVisualization();
+                    updateColorLegend();
+                    visualization.style.display = 'grid';
+                    colorLegend.style.display = 'grid';
+                }
+                
+                showLoading(false);
+            } catch (error) {
+                showError('Failed to load frames: ' + error.message);
+                showLoading(false);
+            }
+        }
+
+        // Draw grid on canvas
+        function drawGrid(canvas, grid, cellSizeParam) {
+            const ctx = canvas.getContext('2d');
+            const size = cellSizeParam || cellSize;
+            
+            canvas.width = grid[0].length * size;
+            canvas.height = grid.length * size;
+            
+            for (let row = 0; row < grid.length; row++) {
+                for (let col = 0; col < grid[row].length; col++) {
+                    const value = grid[row][col];
+                    ctx.fillStyle = COLOR_PALETTE[value] || '#000000';
+                    
+                    // Use white with border for value 10
+                    if (value === 10) {
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(col * size, row * size, size, size);
+                        ctx.strokeStyle = '#CCCCCC';
+                        ctx.strokeRect(col * size, row * size, size, size);
+                    } else {
+                        ctx.fillRect(col * size, row * size, size, size);
+                    }
+                }
+            }
+            
+            // Draw grid lines
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i <= grid.length; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, i * size);
+                ctx.lineTo(canvas.width, i * size);
+                ctx.stroke();
+            }
+            for (let i = 0; i <= grid[0].length; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * size, 0);
+                ctx.lineTo(i * size, canvas.height);
+                ctx.stroke();
+            }
+        }
+
+        // Update visualization
+        function updateVisualization() {
+            if (frames.length === 0) return;
+            
+            const currentFrame = frames[currentFrameIndex];
+            const previousFrame = currentFrameIndex > 0 ? frames[currentFrameIndex - 1] : null;
+            
+            // Update current frame
+            const currentCanvas = document.getElementById('currentCanvas');
+            drawGrid(currentCanvas, currentFrame.grid, cellSize);
+            
+            document.getElementById('currentFrameNumber').textContent = `Frame ${currentFrameIndex}`;
+            document.getElementById('currentCaption').textContent = currentFrame.caption || 'No caption';
+            
+            const currentMetadata = document.getElementById('currentMetadata');
+            currentMetadata.innerHTML = `
+                <div class="metadata-item">
+                    <span class="metadata-label">State:</span>
+                    <span class="metadata-value">${currentFrame.state || 'Unknown'}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Score:</span>
+                    <span class="metadata-value">${currentFrame.score || 0}</span>
+                </div>
+                <div class="metadata-item">
+                    <span class="metadata-label">Action:</span>
+                    <span class="metadata-value">${currentFrame.action ? `Type ${currentFrame.action.type}` : 'None'}</span>
+                </div>
+            `;
+            
+            // Update previous frame
+            const previousCanvas = document.getElementById('previousCanvas');
+            if (previousFrame) {
+                drawGrid(previousCanvas, previousFrame.grid, cellSize);
+                document.getElementById('previousFrameNumber').textContent = `Frame ${currentFrameIndex - 1}`;
+                document.getElementById('previousCaption').textContent = previousFrame.caption || 'No caption';
+                
+                const previousMetadata = document.getElementById('previousMetadata');
+                previousMetadata.innerHTML = `
+                    <div class="metadata-item">
+                        <span class="metadata-label">State:</span>
+                        <span class="metadata-value">${previousFrame.state || 'Unknown'}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Score:</span>
+                        <span class="metadata-value">${previousFrame.score || 0}</span>
+                    </div>
+                    <div class="metadata-item">
+                        <span class="metadata-label">Action:</span>
+                        <span class="metadata-value">${previousFrame.action ? `Type ${previousFrame.action.type}` : 'None'}</span>
+                    </div>
+                `;
+            } else {
+                previousCanvas.width = 100;
+                previousCanvas.height = 100;
+                const ctx = previousCanvas.getContext('2d');
+                ctx.fillStyle = '#f0f0f0';
+                ctx.fillRect(0, 0, 100, 100);
+                ctx.fillStyle = '#666';
+                ctx.textAlign = 'center';
+                ctx.fillText('No previous frame', 50, 50);
+                
+                document.getElementById('previousFrameNumber').textContent = '';
+                document.getElementById('previousCaption').textContent = '';
+                document.getElementById('previousMetadata').innerHTML = '';
+            }
+            
+            // Update navigation
+            frameInfo.textContent = `Frame ${currentFrameIndex + 1} of ${frames.length}`;
+            prevButton.disabled = currentFrameIndex === 0;
+            nextButton.disabled = currentFrameIndex === frames.length - 1;
+        }
+
+        // Update color legend
+        function updateColorLegend() {
+            const legend = document.getElementById('colorLegend');
+            legend.innerHTML = '';
+            
+            for (let i = 0; i < 16; i++) {
+                const item = document.createElement('div');
+                item.className = 'color-item';
+                
+                const swatch = document.createElement('div');
+                swatch.className = 'color-swatch';
+                swatch.style.backgroundColor = COLOR_PALETTE[i];
+                if (i === 10) {
+                    swatch.style.border = '1px solid #ccc';
+                }
+                
+                const label = document.createElement('span');
+                label.textContent = i;
+                
+                item.appendChild(swatch);
+                item.appendChild(label);
+                legend.appendChild(item);
+            }
+        }
+
+        // Helper functions
+        function showError(message) {
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function showLoading(show) {
+            loadingDiv.style.display = show ? 'block' : 'none';
+        }
+
+        // Event listeners
+        gameSelect.addEventListener('change', (e) => {
+            if (e.target.value) {
+                currentGame = e.target.value;
+                loadFrames(currentGame);
+            } else {
+                visualization.style.display = 'none';
+                colorLegend.style.display = 'none';
+            }
+        });
+
+        cellSizeInput.addEventListener('change', (e) => {
+            cellSize = parseInt(e.target.value);
+            if (frames.length > 0) {
+                updateVisualization();
+            }
+        });
+
+        prevButton.addEventListener('click', () => {
+            if (currentFrameIndex > 0) {
+                currentFrameIndex--;
+                updateVisualization();
+            }
+        });
+
+        nextButton.addEventListener('click', () => {
+            if (currentFrameIndex < frames.length - 1) {
+                currentFrameIndex++;
+                updateVisualization();
+            }
+        });
+
+        refreshButton.addEventListener('click', () => {
+            loadGames();
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (frames.length === 0) return;
+            
+            if (e.key === 'ArrowLeft' && currentFrameIndex > 0) {
+                currentFrameIndex--;
+                updateVisualization();
+            } else if (e.key === 'ArrowRight' && currentFrameIndex < frames.length - 1) {
+                currentFrameIndex++;
+                updateVisualization();
+            }
+        });
+
+        // Initialize
+        loadGames();
+    </script>
+</body>
+</html>

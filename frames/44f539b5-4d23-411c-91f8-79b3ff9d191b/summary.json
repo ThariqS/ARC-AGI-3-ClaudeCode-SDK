@@ -1,0 +1,16 @@
+{
+  "gameId": "ft09-16726c5b26ff",
+  "guid": "44f539b5-4d23-411c-91f8-79b3ff9d191b",
+  "totalFrames": 1,
+  "finalState": "NOT_FINISHED",
+  "finalScore": 0,
+  "totalActions": 0,
+  "startTime": "2025-07-18T16:56:38.478Z",
+  "timeline": [
+    {
+      "frame": 0,
+      "action": "RESET",
+      "caption": "Game initialized"
+    }
+  ]
+}
