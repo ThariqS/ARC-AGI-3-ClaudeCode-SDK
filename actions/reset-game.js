@@ -23,27 +23,41 @@ async function resetGame() {
       process.exit(1);
     }
     
-    let gameId = options.game;
-    if (!gameId) {
-      const lastSession = Object.entries(sessions).sort((a, b) => 
+    let sessionGuid;
+    let session;
+    
+    if (options.game) {
+      // Find session by game ID
+      const sessionEntry = Object.entries(sessions)
+        .find(([guid, s]) => s.gameId === options.game);
+      
+      if (!sessionEntry) {
+        console.error(chalk.red(`No session found for game: ${options.game}`));
+        process.exit(1);
+      }
+      
+      [sessionGuid, session] = sessionEntry;
+    } else {
+      // Find the most recent session
+      const sortedSessions = Object.entries(sessions).sort((a, b) => 
         new Date(b[1].startTime) - new Date(a[1].startTime)
-      )[0];
-      gameId = lastSession[0];
-      console.log(chalk.yellow(`Using last active game: ${gameId}`));
+      );
+      
+      if (sortedSessions.length === 0) {
+        console.error(chalk.red('No sessions found.'));
+        process.exit(1);
+      }
+      
+      [sessionGuid, session] = sortedSessions[0];
+      console.log(chalk.yellow(`Using last active game: ${session.gameId}`));
     }
     
-    const session = sessions[gameId];
-    if (!session) {
-      console.error(chalk.red(`No session found for game: ${gameId}`));
-      process.exit(1);
-    }
-    
-    console.log(chalk.blue(`Resetting game: ${gameId}`));
+    console.log(chalk.blue(`Resetting game: ${session.gameId}`));
     
     const requestBody = {
-      game_id: gameId,
+      game_id: session.gameId,
       card_id: config.currentScorecardId,
-      guid: session.guid
+      guid: sessionGuid
     };
     
     const response = await makeRequest('/api/cmd/RESET', {
@@ -67,7 +81,7 @@ async function resetGame() {
     await saveFrame(
       session.guid,
       session.frameCount,
-      finalResponse,
+      { ...finalResponse, game_id: session.gameId },
       { type: 'RESET', params: { full: options.full || false } },
       resetType
     );

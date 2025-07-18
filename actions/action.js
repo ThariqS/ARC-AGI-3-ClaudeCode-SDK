@@ -53,26 +53,35 @@ async function executeAction() {
       process.exit(1);
     }
     
-    let gameId = options.game;
-    if (!gameId) {
+    let sessionGuid;
+    let session;
+    
+    if (options.game) {
+      // Find session by game ID
+      const sessionEntry = Object.entries(sessions)
+        .find(([guid, s]) => s.gameId === options.game);
+      
+      if (!sessionEntry) {
+        console.error(chalk.red(`No session found for game: ${options.game}`));
+        process.exit(1);
+      }
+      
+      [sessionGuid, session] = sessionEntry;
+    } else {
+      // Find the most recent active session
       const activeSessions = Object.entries(sessions)
-        .filter(([_, session]) => session.state === 'NOT_FINISHED');
+        .filter(([_, s]) => s.state === 'NOT_FINISHED')
+        .sort(([_, a], [__, b]) => new Date(b.startTime) - new Date(a.startTime));
       
       if (activeSessions.length === 0) {
         console.error(chalk.red('No active games found. Start a new game.'));
         process.exit(1);
       }
       
-      gameId = activeSessions[0][0];
+      [sessionGuid, session] = activeSessions[0];
       if (activeSessions.length > 1) {
-        console.log(chalk.yellow(`Multiple active games found. Using: ${gameId}`));
+        console.log(chalk.yellow(`Multiple active games found. Using: ${session.gameId}`));
       }
-    }
-    
-    const session = sessions[gameId];
-    if (!session) {
-      console.error(chalk.red(`No session found for game: ${gameId}`));
-      process.exit(1);
     }
     
     if (session.state !== 'NOT_FINISHED') {
@@ -81,8 +90,8 @@ async function executeAction() {
     }
     
     let requestBody = {
-      game_id: gameId,
-      guid: session.guid
+      game_id: session.gameId,
+      guid: sessionGuid
     };
     
     if (options.reasoning) {
@@ -124,7 +133,7 @@ async function executeAction() {
     await saveFrame(
       session.guid,
       session.frameCount,
-      response,
+      { ...response, game_id: session.gameId },
       actionData,
       caption
     );
