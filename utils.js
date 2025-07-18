@@ -10,6 +10,7 @@ export const GAMES_FILE = path.join(__dirname, 'games.json');
 export const SESSIONS_FILE = path.join(__dirname, 'sessions.json');
 export const SCORECARDS_FILE = path.join(__dirname, 'scorecards.json');
 export const FRAMES_DIR = path.join(__dirname, 'frames');
+export const GAMES_DIR = path.join(__dirname, 'games');
 
 export async function ensureFile(filePath, defaultContent = {}) {
   try {
@@ -67,10 +68,23 @@ export async function makeRequest(endpoint, options = {}) {
 }
 
 export async function saveFrame(guid, frameNumber, frameData, action, caption = '') {
-  const frameDir = path.join(FRAMES_DIR, guid);
-  await fs.mkdir(frameDir, { recursive: true });
+  // Extract game ID from frameData or get it from sessions
+  let gameId = frameData.game_id;
+  if (!gameId) {
+    const sessions = await readJSON(SESSIONS_FILE) || {};
+    gameId = sessions[guid]?.gameId;
+  }
   
-  const frameFile = path.join(frameDir, `frame_${frameNumber.toString().padStart(4, '0')}.json`);
+  // Save in both old location (for compatibility) and new location
+  const oldFrameDir = path.join(FRAMES_DIR, guid);
+  const newFrameDir = gameId ? path.join(GAMES_DIR, gameId, 'frames') : oldFrameDir;
+  
+  await fs.mkdir(oldFrameDir, { recursive: true });
+  await fs.mkdir(newFrameDir, { recursive: true });
+  
+  const frameFileName = `frame_${frameNumber.toString().padStart(4, '0')}.json`;
+  const oldFrameFile = path.join(oldFrameDir, frameFileName);
+  const newFrameFile = path.join(newFrameDir, frameFileName);
   
   const frameRecord = {
     frameNumber,
@@ -87,10 +101,14 @@ export async function saveFrame(guid, frameNumber, frameData, action, caption = 
     }
   };
   
-  await writeJSON(frameFile, frameRecord);
+  await writeJSON(oldFrameFile, frameRecord);
+  if (gameId) {
+    await writeJSON(newFrameFile, frameRecord);
+  }
   
-  const summaryFile = path.join(frameDir, 'summary.json');
-  let summary = await readJSON(summaryFile) || {
+  const oldSummaryFile = path.join(oldFrameDir, 'summary.json');
+  const newSummaryFile = path.join(newFrameDir, 'summary.json');
+  let summary = await readJSON(oldSummaryFile) || await readJSON(newSummaryFile) || {
     gameId: frameData.game_id,
     guid: frameData.guid,
     totalFrames: 0,
@@ -110,5 +128,18 @@ export async function saveFrame(guid, frameNumber, frameData, action, caption = 
     caption: caption || ''
   });
   
-  await writeJSON(summaryFile, summary);
+  await writeJSON(oldSummaryFile, summary);
+  if (gameId) {
+    await writeJSON(newSummaryFile, summary);
+    
+    // Also update game.json if it exists
+    const gameJsonPath = path.join(GAMES_DIR, gameId, 'game.json');
+    const gameData = await readJSON(gameJsonPath);
+    if (gameData) {
+      gameData.currentScore = frameData.score;
+      gameData.sessionId = guid;
+      gameData.lastUpdated = new Date().toISOString();
+      await writeJSON(gameJsonPath, gameData);
+    }
+  }
 }

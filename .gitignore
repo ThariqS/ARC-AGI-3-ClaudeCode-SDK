@@ -57,4 +57,4 @@ config.json
 games.json
 sessions.json
 scorecards.json
-frames/**/*.json
+games/
